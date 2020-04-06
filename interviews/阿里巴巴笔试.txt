@@ -1,0 +1,275 @@
+//评测题目:
+//问题一：有10亿个数据，数据为整数，取值范围为[1 - 10000]，现在需要对这个10亿个数据进行排序
+
+//思路
+1、10亿数据保存在文件中，分1000次读出；
+2、每次读出数据加载到内存排序，排序完成后，新建一个文件，并将排好序的内容写到文件中；
+3、1000次读出并排序写到临时文件中后，从每个临时文件中一个一个的读取并比较取最小的，并加到总的文件中；
+4、再从3步取了最小的临时文件中读取一个，其他文件不读，再进行比较，取最小的加到总的文件中。
+5、重复步骤四，直至左右的数据读完。
+
+
+import java.io.*;
+
+public class Sort {
+
+    private static String BASIC_PATH = "G:\\";
+
+    private static String FILE_NAME = BASIC_PATH + "lagerFile.txt";
+
+    /**
+     * 向某个文件插入数组的所有数据
+     * @param fileName
+     * @param nums
+     */
+    public void write(String fileName, int[] nums) {
+        File file = new File(fileName);
+
+        DataOutputStream dos = null;
+        try {
+            dos = new DataOutputStream(new BufferedOutputStream(
+                    new FileOutputStream(file, true)));
+            for (int i = 0; i < nums.length; i++) {
+                dos.writeInt(nums[i]);
+            }
+        } catch(FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                dos.close();
+            }catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+    }
+
+    /**
+     * 读取文件并保存到数组中
+     * @param fileName
+     * @return
+     */
+    public int[] read(String fileName) {
+        int[] nums = new int[1000000];
+        File file = new File(fileName);
+
+        DataInputStream dis = null;
+        try {
+            dis = new DataInputStream(new BufferedInputStream(
+                    new FileInputStream(file)));
+            for (int i = 0; i < nums.length; i++) {
+                nums[i] = dis.readInt();
+            }
+        } catch(FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                dis.close();
+            }catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return nums;
+    }
+
+    /**
+     * 对大文件进行排序
+     */
+    public void sort() {
+        int total = 1000000000;
+        // 文件数
+        int fileNum = 1000;
+        // 每个文件大小
+        int fileSize = total / fileNum;
+        int[] nums = new int[fileSize];
+
+        File file = new File(FILE_NAME);
+        if (file.exists()) {
+            QuickSort quickSort = new QuickSort();
+            try {
+                DataInputStream dis = new DataInputStream(new BufferedInputStream(
+                        new FileInputStream(file)));
+                for (int i = 0; i < fileNum; i++) {
+                    int j = 0;
+                    // 读到数组中
+                    for (; j < nums.length; j++) {
+                        nums[i] = dis.readInt();
+                    }
+                    // 排序
+                    quickSort.quickSort(nums);
+                    // 写到临时文件中
+                    write(BASIC_PATH + i + ".txt", nums);
+                }
+            } catch(FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        merge(fileNum);
+    }
+
+    /**
+     * 对多个文件进行归并
+     * @param fileNum
+     */
+    public void merge(int fileNum) {
+        DataInputStream[] fileReaders = new DataInputStream[fileNum];
+        // 保存某临时文件当前读取到的值
+        int[] nums = new int[fileNum];
+
+        DataOutputStream dos = null;
+        try {
+            for (int i = 0; i < fileNum; i++) {
+                fileReaders[i] = new DataInputStream(new BufferedInputStream(
+                        new FileInputStream(BASIC_PATH + i + ".txt")));
+            }
+            dos = new DataOutputStream(new BufferedOutputStream(
+                    new FileOutputStream(BASIC_PATH + FILE_NAME)));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        try {
+          	
+          	int curNum = Integer.MAX_VALUE;
+          	int curIndex = -1;
+         	// 每个文件都读第一个
+          	for (int i = 0; i < fileNum; i++) {
+            	nums[i] = fileReaders[i].readInt();
+              	if (nums[i] < curNum) {
+                 	curNum = nums[i]; 
+                  	curIndex = i;  //下一个读curIndex这个文件
+                }
+            }
+          	// 将最小的值加到文件中
+          	dos.writeInt(curNum);
+          	curNum = Integer.MAX_VALUE;
+          	int count=0;
+          
+          	while(true) {
+              	try {
+             	 	nums[curIndex] = fileReaders[curIndex].readInt();
+                } catch (EOFException e) {
+                  	nums[curIndex] = Integer.MAX_VALUE;
+                }
+              	for(int i = 0; i < fileNum; i++) {
+                	if(nums[i] != nums[i] < curNum) {
+                    	curNum = nums[i]; 
+                  		curIndex = i;  //下一个读curIndex这个文件
+                      	count++;
+                    }
+                 }
+              	// 将最小的值加到文件中
+          		dos.writeInt(curNum);
+          		curNum = Integer.MAX_VALUE;
+              	if(count ==0) break;
+              	count=0;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                for (int i = 0; i < fileNum; i++) {
+                    fileReaders[i].close();
+                    new File(BASIC_PATH + i + ".txt").delete();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    
+
+    static class QuickSort {
+
+        public void quickSort(int[] nums) {
+            quickSort(nums, 0, nums.length - 1);
+        }
+
+        public void quickSort(int[] nums, int start, int end) {
+            if (start < end) {
+                int midIndex = partition(nums, start, end);
+                quickSort(nums, start, midIndex - 1);
+                quickSort(nums, midIndex + 1, end);
+            }
+        }
+
+        public int partition(int[] nums, int start, int end) {
+            int midNum = nums[start];
+            int index = start;
+            for (int i = start + 1; i <= end; i++) {
+                if (nums[i] < midNum) {
+                    swarp(nums, i, ++index);
+                }
+            }
+            swarp(nums, index, start);
+            return index;
+        }
+
+        public void swarp(int[] nums, int index1, int index2) {
+            if (index1 == index2)
+                return;
+
+            int temp = nums[index1];
+            nums[index1] = nums[index2];
+            nums[index2] = temp;
+        }
+    }
+}
+
+
+//问题二：统计每秒淘宝用户的在线人数？
+//1.以某一天访问淘宝用户的用户为例，不需要考虑前一天的情况
+//2.有一天的用户登录的日志文件，其中一条登录日志的形式为：上线时间、下线时间、用户编号
+//3.需要给出任意一秒的淘宝用户的在线人数
+
+// 
+1、建立一个数组，长度为60*60*24；
+2、一条一条登录记录从文件中读取出来，计算上线时间到下线时间之间每一秒对应数组的位置，
+在这些位置上依次累加1,如果下线时间为空，则是上线时间对应秒的位置到数组结尾，每个位置累加1
+3、直到读完整个日志文件；
+4、查某个时间点的在线人数，将这个时间点转换为数组对应下标的位置即可。
+
+public OnlineCounter {
+
+	private static int SECONDS = 60 * 60 * 24;
+    
+    private static int[] CONTER = new int[SECONDS];
+    
+    // 从日志文件读取登录记录
+    public void readFromLog() {
+    	
+    }
+    
+    // 将这个startTime到endTime时间段之间的计数累加1
+    public void computeTime(String startTime, String endTime) {
+    	
+    }
+    
+    // 根据秒数获取在线量
+    public int getOnline(int second) {
+    
+    }
+    
+    // 根据时间获取在线量
+    public int getOnline(Date date) {
+    
+    }
+
+}
+
+
+1、建数据库表存放登录日志：上线时间，下线时间（如果下线时间为空，
+可以将其替换成一个较大的值，如9999-01-01 00:00:00）；
+2、再在上线时间和下线时间上分别建立索引；
+3、如统计2020-03-13 21:40:00时间点的在线人数,写两个查询；
+select count(*) from log where endTime>20200313214000;
+select count(*) from log where startTime>20200313214000;
+查询1结果-查询2结果，即为2020-03-13 21:40:00的在线人数。
+
+
